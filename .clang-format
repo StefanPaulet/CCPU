@@ -1,6 +1,6 @@
 DisableFormat: false
 Language: Cpp
-Standard: c++23
+Standard: Latest
 
 QualifierAlignment: Custom
 QualifierOrder: ['static', 'constexpr', 'inline', 'type', 'volatile', 'const']
@@ -9,7 +9,7 @@ PointerAlignment: Left
 ReferenceAlignment: Left
 SpaceAroundPointerQualifiers: Default
 
-AlignTrailingComments: Always
+AlignTrailingComments: true
 
 LineEnding: LF
 
