@@ -9,7 +9,7 @@ class Register {
 public:
   constexpr Register() = default;
   constexpr Register(Register const&) = default;
-  constexpr Register(Register&&) = default;
+  constexpr Register(Register&&) noexcept = default;
 
   [[nodiscard]] constexpr auto loadByte() const noexcept -> uint8_t { return _data; }
   [[nodiscard]] constexpr auto loadWord() const noexcept -> uint16_t { return _data; }
