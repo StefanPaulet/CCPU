@@ -10,7 +10,8 @@ FetchContent_MakeAvailable(Catch2)
 
 add_executable(unittests unitTest.cpp
     registerTest.cpp
-    aluTest.cpp)
+    aluTest.cpp
+    memoryTest.cpp)
 
 target_link_libraries(unittests PRIVATE Catch2::Catch2WithMain)
 
