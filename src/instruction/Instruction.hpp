@@ -91,12 +91,12 @@ struct OffsetBasedInstruction : public Instruction {
  *  -10 = dword
  *  -11 = reserved
  * bit 21 = load/store:
- *  -0 = load from memory => bits 25-22 are destination
- *  -1 = store in memory => bits 25-22 are source
+ *  -0 = load from memory => bits 19-16 are destination register
+ *  -1 = store in memory => base +/- offset is destination location
  * bit 20 = subtract/add:
  *  -0 = add offset to base register
  *  -1 = subtract offset from base register
- * bits 19-16 = source/destination register
+ * bits 19-16 = source register
  * bits 15-12 = base register
  * bits 11-0 = offset (see above)
  */
