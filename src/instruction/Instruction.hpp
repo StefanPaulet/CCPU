@@ -166,6 +166,7 @@ struct AluInstruction : public OffsetBasedInstruction {
 
   using OffsetBasedInstruction::OffsetBasedInstruction;
 
+  [[nodiscard]] constexpr auto immediate() const noexcept { return testBit(24); }
   [[nodiscard]] constexpr auto opcode() const noexcept -> OpCode { return static_cast<OpCode>((val >> 20) & 0xF); }
   [[nodiscard]] constexpr auto source() const noexcept -> uint8_t { return (val >> 16) & 0xF; }
   [[nodiscard]] constexpr auto destination() const noexcept -> uint8_t { return (val >> 12) & 0xF; }
