@@ -39,6 +39,7 @@ public:
       if (!returnVal) {
         return returnVal;
       }
+
     }
     return {};
   }
@@ -88,11 +89,15 @@ private:
   }
 
   [[nodiscard]] constexpr auto process(Instruction instruction) -> expected<void, FaultyInstruction> {
+    if (!conditional(instruction)) {
+      return {};
+    }
     switch (instruction.type()) {
       using enum InstructionType;
-      case MemoryTransfer: {
-        return process(MemoryTransferInstruction(instruction));
-      }
+      case MemoryTransfer: { return process(MemoryTransferInstruction(instruction)); }
+      case AluOperation: { return process(AluInstruction(instruction)); }
+      case Branch: { return process(BranchInstruction(instruction)); }
+      case StackOperation: { return process(StackInstruction(instruction)); }
       default: assert(false && "Unimplemented instruction type");
     }
   }
@@ -215,7 +220,6 @@ private:
       }
       default: assert(false && "Unimplemented stack operation");
     }
-    return {};
   }
 
   [[nodiscard]] constexpr auto computeOffset(OffsetBasedInstruction instruction, bool immediate) -> uint32_t {
@@ -227,7 +231,7 @@ private:
       using enum OffsetBasedInstruction::ShiftType;
       case LogicalLeft: { return baseRegisterValue << instruction.shiftAmount(); }
       case LogicalRight: { return baseRegisterValue >> instruction.shiftAmount(); }
-      case ArithmeticLeft: { return static_cast<int32_t>(baseRegisterValue) >> instruction.shiftAmount(); }
+      case ArithmeticLeft: { return static_cast<int32_t>(baseRegisterValue) << instruction.shiftAmount(); }
       case ArithmeticRight: { return static_cast<int32_t>(baseRegisterValue) >> instruction.shiftAmount(); }
     }
   }
@@ -238,6 +242,24 @@ private:
     auto instruction = Instruction{currentPC - 4};
     PC().storeDWord(currentPC + 4);
     return instruction;
+  }
+  [[nodiscard]] constexpr auto conditional(Instruction instruction) noexcept -> bool {
+    if (instruction.isUnconditional()) {
+      return true;
+    }
+    auto condition = instruction.getCondition();
+    switch (condition) {
+      using enum Condition;
+      case EQ: { return _cpsr.zFlag(); }
+      case NE: { return !_cpsr.zFlag(); }
+      case NG: { return _cpsr.nFlag(); }
+      case PO: { return !_cpsr.nFlag(); }
+      case VS: { return _cpsr.vFlag(); }
+      case VC: { return !_cpsr.vFlag(); }
+      case AL: { return true; }
+      case NV: { return false; }
+      default: { assert(false && "Unimplemented condition"); }
+    }
   }
 
   [[nodiscard]] constexpr auto SP() -> Register& { return _registers[13]; }
