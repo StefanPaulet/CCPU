@@ -19,10 +19,12 @@ enum struct FaultyInstruction {
 };
 
 class Cpu {
+public:
+  static constexpr uint32_t RamSize = 4 * 1024;
+  static constexpr uint32_t CodeSectionBegin = 0;
+  static constexpr uint32_t FinalInstruction = RamSize - 1;
+
 private:
-  static constexpr auto RamSize = 4 * 1024 * 1024;
-  static constexpr auto FinalInstruction = RamSize - 1;
-  static constexpr auto CodeSectionBegin = 4;
   using RAM = RandomAccessMemory<RamSize>;
 
 public:
@@ -31,18 +33,32 @@ public:
   constexpr Cpu(Cpu&&) noexcept = default;
 
   explicit constexpr Cpu(array<uint8_t, RamSize> ram) : _ram {ram} {}
+  explicit constexpr Cpu(RAM ram) : _ram {ram} {}
 
   constexpr auto run() noexcept -> expected<void, FaultyInstruction> {
     setup();
     while (hasOperations()) {
-      auto returnVal = process(nextOperation());
+      auto nextOp = nextOperation();
+      if (!nextOp) {
+        return unexpected{nextOp.error()};
+      }
+      auto returnVal = process(nextOp.value());
       if (!returnVal) {
         return returnVal;
       }
-
     }
     return {};
   }
+
+  [[nodiscard]] constexpr auto readRegister(uint8_t idx) const noexcept -> uint32_t { return _registers[idx].loadDWord(); }
+  [[nodiscard]] constexpr auto readMem(uint32_t idx) const noexcept -> expected<uint32_t, FaultyInstruction> {
+    auto retVal = _ram.readDWord(idx);
+    if (!retVal.has_value()) {
+      return unexpected{handleFaultyMemoryReturn(retVal).error()};
+    }
+    return retVal.value();
+  }
+  [[nodiscard]] constexpr auto readCPSR() const noexcept { return _cpsr; }
 
 private:
   class CPSR {
@@ -69,13 +85,13 @@ private:
   };
 
   constexpr auto setup() -> void {
-    PC().storeDWord(CodeSectionBegin);
+    PC().storeDWord(CodeSectionBegin + 4);
     LR().storeDWord(FinalInstruction);
     SP().storeDWord(RamSize - 4);
   }
 
   template <typename T>
-  [[nodiscard]] constexpr auto handleFaultyMemoryReturn(expected<T, MemoryAccessViolation> value)
+  [[nodiscard]] constexpr auto handleFaultyMemoryReturn(expected<T, MemoryAccessViolation> value) const
     -> expected<void, FaultyInstruction> {
     using enum MemoryAccessViolation;
     using enum FaultyInstruction;
@@ -237,9 +253,13 @@ private:
   }
 
   [[nodiscard]] constexpr auto hasOperations() const noexcept -> bool { return PC().loadDWord() != FinalInstruction; }
-  [[nodiscard]] constexpr auto nextOperation() noexcept -> Instruction {
+  [[nodiscard]] constexpr auto nextOperation() noexcept -> expected<Instruction, FaultyInstruction> {
     auto currentPC = PC().loadDWord();
-    auto instruction = Instruction{currentPC - 4};
+    auto valueAtPC = _ram.readDWord(currentPC - 4);
+    if (!valueAtPC.has_value()) {
+      return unexpected{FaultyInstruction::InvalidMemoryRead};
+    }
+    auto instruction = Instruction{valueAtPC.value()};
     PC().storeDWord(currentPC + 4);
     return instruction;
   }
