@@ -20,6 +20,14 @@ constexpr auto getAlu() {
 }
 } // namespace
 
+TEST_CASE("ALU should perform move") {
+  constexpr auto alu1 = getAlu<32, 21, Move>();
+  STATIC_CHECK(alu1.res() == 21);
+
+  constexpr auto alu2 = getAlu<32, static_cast<uint32_t>(-43), Move>();
+  STATIC_CHECK(alu2.res() == -43);
+}
+
 TEST_CASE("ALU should perform addition") {
   constexpr auto alu1 = getAlu<32, 21, Addition>();
   STATIC_CHECK(alu1.res() == 53);

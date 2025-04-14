@@ -161,7 +161,8 @@ struct AluInstruction : public OffsetBasedInstruction {
     TEQ   = 0b1010,
     CMP   = 0b1011,
     CMN   = 0b1100,
-    MVN   = 0b1101
+    MVN   = 0b1101,
+    MOV   = 0b1110
   };
 
   using OffsetBasedInstruction::OffsetBasedInstruction;

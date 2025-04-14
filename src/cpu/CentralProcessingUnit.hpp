@@ -158,7 +158,7 @@ private:
 
   [[nodiscard]] constexpr auto process(AluInstruction instruction) -> expected<void, FaultyInstruction> {
     auto lhs = _registers[instruction.source()].loadDWord();
-    auto& destination = _registers[instruction.source()];
+    auto& destination = _registers[instruction.destination()];
     auto rhs = computeOffset(instruction, instruction.immediate());
 
     _alu.loadIn1(lhs);
@@ -168,6 +168,7 @@ private:
       using enum ArithmeticUnit::OpType;
       case ADD: { _alu.compute(Addition); break; }
       case SUB: { _alu.compute(Subtraction); break; }
+      case MOV: { _alu.compute(Move); break; }
       default: { assert(false && "Unimplemented ALU instruction"); }
     }
     auto result = _alu.res();
@@ -191,7 +192,7 @@ private:
     if (instruction.link()) {
       LR().storeDWord(PC().loadDWord());
     }
-    PC().storeDWord(instruction.offset());
+    PC().storeDWord(instruction.offset() + 4);
     return {};
   }
 

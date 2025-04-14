@@ -58,9 +58,9 @@ public:
     _instr.val |= static_cast<uint8_t>(size) << 22;
     return *this;
   }
-  [[nodiscard]] constexpr auto& withStore(bool store) noexcept {
+  [[nodiscard]] constexpr auto& withStore() noexcept {
     assert(_instr.type() == MemoryTransfer);
-    _instr.val |= static_cast<uint8_t>(store) << 21;
+    _instr.val |= 1 << 21;
     return *this;
   }
   [[nodiscard]] constexpr auto& withSubtract(bool subtract) noexcept {
@@ -69,7 +69,13 @@ public:
     return *this;
   }
   [[nodiscard]] constexpr auto& withSourceAndBase(uint8_t source, uint8_t base) noexcept {
-    assert(_instr.type() == MemoryTransfer || _instr.type() == AluOperation);
+    assert(_instr.type() == MemoryTransfer);
+    _instr.val |= source << 16;
+    _instr.val |= base << 12;
+    return *this;
+  }
+  [[nodiscard]] constexpr auto& withSourceAndDestination(uint8_t source, uint8_t base) noexcept {
+    assert(_instr.type() == AluOperation);
     _instr.val |= source << 16;
     _instr.val |= base << 12;
     return *this;
@@ -81,9 +87,9 @@ public:
     return *this;
   }
 
-  [[nodiscard]] constexpr auto& withLink(bool link) noexcept {
+  [[nodiscard]] constexpr auto& withLink() noexcept {
     assert(_instr.type() == Branch);
-    _instr.val |= static_cast<uint8_t>(link) << 24;
+    _instr.val |= 1 << 24;
     return *this;
   }
   [[nodiscard]] constexpr auto& withImmediate(uint32_t offset) noexcept {
@@ -102,9 +108,9 @@ public:
     assert(_instr.type() == StackOperation);
     for (auto idx = 0; idx < registers.size(); ++idx) {
       if (registers[idx]) {
-        _instr.val |= (1 << (7 + idx));
+        _instr.val |= (1 << (8 + idx));
       } else {
-        _instr.val &= ~(1 << (7 + idx));
+        _instr.val &= ~(1 << (8 + idx));
       }
     }
     return *this;
@@ -143,8 +149,7 @@ public:
       assert(_ram.writeDWord(idx, instr.val).has_value());
       idx += 4;
     }
-    static_assert(IB().withType(InType::Branch).get().type() == InType::Branch);
-    assert(_ram.writeDWord(idx, IB().withType(InType::Branch).withImmediate(Cpu::FinalInstruction).get().val).has_value());
+    assert(_ram.writeDWord(idx, IB().withType(InType::Branch).withImmediate(Cpu::FinalInstruction - 4).get().val).has_value());
     return _ram;
   }
 private:
@@ -156,6 +161,12 @@ constexpr auto cpuWithRam(RAM ram) -> std::tuple<Cpu, std::expected<void, ccpu::
   auto val = cpu.run();
   return {cpu, val};
 }
+
+using enum ccpu::InstructionType;
+using enum ccpu::MemoryTransferInstruction::TransferSize;
+using enum ccpu::OffsetBasedInstruction::ShiftType;
+using enum ccpu::AluInstruction::OpCode;
+using enum ccpu::StackInstruction::OpCode;
 } // namespace
 
 TEST_CASE("Cpu without instructions should leave all registers in the expected state") {
@@ -163,4 +174,115 @@ TEST_CASE("Cpu without instructions should leave all registers in the expected s
   constexpr auto cpuWithStatus = cpuWithRam(ram);
   STATIC_CHECK(get<1>(cpuWithStatus).has_value());
   STATIC_CHECK(get<0>(cpuWithStatus).readRegister(15) == Cpu::FinalInstruction);
+}
+
+TEST_CASE("Cpu with memory loads should work as expected") {
+  constexpr auto ram = RamFactory().produce(
+    {
+      MemoryEntry{64, 128},
+      MemoryEntry{65, 10},
+      MemoryEntry{66, 13},
+      MemoryEntry{67, 25}
+    },
+    {
+      IB().withType(MemoryTransfer).withSourceAndBase(1, 0).withOffset(64).get(),
+      IB().withType(MemoryTransfer).withSourceAndBase(2, 0).withOffset(64).withTransferSize(Word).get(),
+      IB().withType(MemoryTransfer).withSourceAndBase(3, 0).withOffset(64).withTransferSize(DWord).get(),
+    }
+ );
+  constexpr auto cpuWithStatus = cpuWithRam(ram);
+  STATIC_CHECK(get<1>(cpuWithStatus).has_value());
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(15) == Cpu::FinalInstruction);
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(1) == 128);
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(2) == 128 + (10 << 8));
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(3) == 128 + (10 << 8) + (13 << 16) + (25 << 24));
+}
+
+TEST_CASE("Cpu with memory stores should work as expected") {
+  constexpr auto ram = RamFactory().produce(
+    {
+      MemoryEntry{64, 128},
+      MemoryEntry{68, 0x1234}
+    },
+    {
+      IB().withType(MemoryTransfer).withSourceAndBase(1, 0).withOffset(64).get(),
+      IB().withType(MemoryTransfer).withSourceAndBase(2, 0).withOffset(68).withTransferSize(DWord).get(),
+      IB().withType(MemoryTransfer).withStore().withSourceAndBase(2, 1).withOffset(0).withTransferSize(Byte).get(),
+      IB().withType(MemoryTransfer).withStore().withSourceAndBase(2, 1).withOffset(16).withTransferSize(DWord).get(),
+    }
+  );
+  constexpr auto cpuWithStatus = cpuWithRam(ram);
+  STATIC_CHECK(get<1>(cpuWithStatus).has_value());
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(15) == Cpu::FinalInstruction);
+  STATIC_CHECK(get<0>(cpuWithStatus).readMem(128).value() == 0x34);
+  STATIC_CHECK(get<0>(cpuWithStatus).readMem(144).value() == 0x1234);
+}
+
+TEST_CASE("Cpu with alu operations should work as expected") {
+  constexpr auto ram = RamFactory().produce(
+    {
+      MemoryEntry{64, 5},
+      MemoryEntry{68, 12}
+    },
+    {
+      IB().withType(MemoryTransfer).withSourceAndBase(1, 0).withOffset(64).get(),
+      IB().withType(MemoryTransfer).withSourceAndBase(2, 0).withOffset(68).get(),
+      IB().withType(AluOperation).withOpcode(ADD).withSourceAndDestination(1, 2).withOffset(ArithmeticLeft, 0, 2).get(),
+      IB().withType(AluOperation).withOpcode(ADD).withSourceAndDestination(1, 3).withOffset(ArithmeticLeft, 1, 2).get(),
+      IB().withType(AluOperation).withOpcode(ADD).withSourceAndDestination(1, 4).withOffset(ArithmeticRight, 1, 2).get(),
+    }
+  );
+  constexpr auto cpuWithStatus = cpuWithRam(ram);
+  STATIC_CHECK(get<1>(cpuWithStatus).has_value());
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(15) == Cpu::FinalInstruction);
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(2) == 17);
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(3) == 39);
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(4) == 13);
+}
+
+TEST_CASE("Cpu with simple branch operations should work as expected") {
+  constexpr auto ram = RamFactory().produce(
+    {
+      MemoryEntry{64, 5},
+      MemoryEntry{256, IB().withType(MemoryTransfer).withSourceAndBase(1, 0).withOffset(64).get().val},
+      MemoryEntry{260, IB().withType(InType::Branch).withImmediate(Cpu::FinalInstruction - 4).get().val}
+    },
+    {
+      IB().withType(Branch).withImmediate(256).get(),
+    }
+  );
+  constexpr auto cpuWithStatus = cpuWithRam(ram);
+  STATIC_CHECK(get<1>(cpuWithStatus).has_value());
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(15) == Cpu::FinalInstruction);
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(1) == 5);
+}
+
+TEST_CASE("Cpu with linked branch operations should work as expected") {
+  constexpr auto ram = RamFactory().produce(
+    {
+      MemoryEntry{64, 5},
+      MemoryEntry{256, IB().withType(MemoryTransfer).withSourceAndBase(1, 0).withOffset(64).get().val},
+      MemoryEntry{260, IB().withType(AluOperation).withSourceAndDestination(0, 15).withOffset(LogicalLeft, 0, 14).withOpcode(MOV).get().val}
+    },
+    {
+      IB().withType(Branch).withLink().withImmediate(256).get(),
+    }
+  );
+  constexpr auto cpuWithStatus = cpuWithRam(ram);
+  STATIC_CHECK(get<1>(cpuWithStatus).has_value());
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(15) == Cpu::FinalInstruction);
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(1) == 5);
+}
+
+TEST_CASE("Cpu with push stack operations should work as expected") {
+  constexpr auto ram = RamFactory().produce(
+    {},
+    {
+      IB().withType(StackOperation).withOpcode(PUSH).withRegisters({1, 1}).get(),
+    }
+  );
+  constexpr auto cpuWithStatus = cpuWithRam(ram);
+  STATIC_CHECK(get<1>(cpuWithStatus).has_value());
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(15) == Cpu::FinalInstruction);
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(13) == Cpu::RamSize - 12);
 }
