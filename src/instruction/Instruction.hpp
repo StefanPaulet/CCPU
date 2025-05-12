@@ -41,7 +41,7 @@ enum struct InstructionType : uint8_t {
 struct Instruction {
   [[nodiscard]] constexpr auto getCondition() const noexcept -> Condition { return static_cast<Condition>((val >> 28) & 0xF); }
   [[nodiscard]] constexpr auto isUnconditional() const noexcept -> bool { return getCondition() == Condition::AL; }
-  [[nodiscard]] constexpr auto type() const noexcept -> InstructionType { return static_cast<InstructionType>((val >> 25) & 0x3); }
+  [[nodiscard]] constexpr auto type() const noexcept -> InstructionType { return static_cast<InstructionType>((val >> 25) & 0x7); }
   [[nodiscard]] constexpr auto testBit(uint8_t bit) const noexcept -> bool { return val & (uint32_t{1} << bit); }
   uint32_t val;
 };
@@ -91,18 +91,18 @@ struct OffsetBasedInstruction : public Instruction {
  *  -10 = dword
  *  -11 = reserved
  * bit 21 = load/store:
- *  -0 = load from memory => bits 25-22 are destination
- *  -1 = store in memory => bits 25-22 are source
+ *  -0 = load from memory => bits 19-16 are destination register
+ *  -1 = store in memory => base +/- offset is destination location
  * bit 20 = subtract/add:
  *  -0 = add offset to base register
  *  -1 = subtract offset from base register
- * bits 19-16 = source/destination register
+ * bits 19-16 = source register
  * bits 15-12 = base register
  * bits 11-0 = offset (see above)
  */
 
 struct MemoryTransferInstruction : public OffsetBasedInstruction {
-  enum struct TransferSize {
+  enum struct TransferSize : uint8_t {
     Byte = 0b00,
     Word = 0b01,
     DWord = 0b10
@@ -161,11 +161,13 @@ struct AluInstruction : public OffsetBasedInstruction {
     TEQ   = 0b1010,
     CMP   = 0b1011,
     CMN   = 0b1100,
-    MVN   = 0b1101
+    MVN   = 0b1101,
+    MOV   = 0b1110
   };
 
   using OffsetBasedInstruction::OffsetBasedInstruction;
 
+  [[nodiscard]] constexpr auto immediate() const noexcept { return testBit(24); }
   [[nodiscard]] constexpr auto opcode() const noexcept -> OpCode { return static_cast<OpCode>((val >> 20) & 0xF); }
   [[nodiscard]] constexpr auto source() const noexcept -> uint8_t { return (val >> 16) & 0xF; }
   [[nodiscard]] constexpr auto destination() const noexcept -> uint8_t { return (val >> 12) & 0xF; }

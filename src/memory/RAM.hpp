@@ -31,10 +31,13 @@ enum struct MemoryAccessViolation {
   InvalidRead, InvalidWrite
 };
 
-template <uint16_t size> class RandomAccessMemory {
-private:
-
+template <uint32_t size> class RandomAccessMemory {
 public:
+  constexpr RandomAccessMemory() = default;
+  constexpr RandomAccessMemory(RandomAccessMemory const&) = default;
+  constexpr RandomAccessMemory(RandomAccessMemory&&) noexcept = default;
+  explicit constexpr RandomAccessMemory(array<uint8_t, size> data) : _data {data} {}
+
   [[nodiscard]] constexpr auto readByte(uint32_t const address) const noexcept { return read<1>(address); }
   [[nodiscard]] constexpr auto readWord(uint32_t const address) const noexcept { return read<2>(address); }
   [[nodiscard]] constexpr auto readDWord(uint32_t const address) const noexcept { return read<4>(address); }

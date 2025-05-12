@@ -33,7 +33,7 @@ private:
 
 public:
   enum struct OpType {
-    Addition, Subtraction
+    Addition, Subtraction, Move
   };
 
   constexpr ArithmeticUnit() = default;
@@ -44,11 +44,15 @@ public:
     switch (opType) {
       using enum OpType;
       case Addition: {
-        add();
+        _res = static_cast<uint64_t>(_in1) + _in2;
         break;
       }
       case Subtraction: {
-        sub();
+        _res = static_cast<uint64_t>(_in1) - _in2;
+        break;
+      }
+      case Move: {
+        _res = _in2;
         break;
       }
       default: {
@@ -69,9 +73,6 @@ public:
   [[nodiscard]] constexpr auto flags() const noexcept -> OpFlags { return _flags; }
 
 private:
-  constexpr auto add() noexcept -> void { _res = static_cast<uint64_t>(_in1) + _in2; }
-  constexpr auto sub() noexcept -> void { _res = static_cast<uint64_t>(_in1) - _in2; }
-
   static constexpr uint32_t maxVal = 0xFFFFFFFF;
   static constexpr uint32_t signBit = (1u << 31);
   static constexpr uint64_t carryBit = (1ul << 32);
