@@ -286,3 +286,22 @@ TEST_CASE("Cpu with push stack operations should work as expected") {
   STATIC_CHECK(get<0>(cpuWithStatus).readRegister(15) == Cpu::FinalInstruction);
   STATIC_CHECK(get<0>(cpuWithStatus).readRegister(13) == Cpu::RamSize - 12);
 }
+
+
+TEST_CASE("Cpu with pop stack operations should work as expected") {
+  constexpr auto ram = RamFactory().produce(
+    {
+      MemoryEntry{64, 35},
+    },
+    {
+      IB().withType(MemoryTransfer).withSourceAndBase(1, 0).withOffset(64).get(),
+      IB().withType(StackOperation).withOpcode(PUSH).withRegisters({0, 1}).get(),
+      IB().withType(StackOperation).withOpcode(POP).withRegisters({1}).get(),
+    }
+  );
+  constexpr auto cpuWithStatus = cpuWithRam(ram);
+  STATIC_CHECK(get<1>(cpuWithStatus).has_value());
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(15) == Cpu::FinalInstruction);
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(13) == Cpu::RamSize - 4);
+  STATIC_CHECK(get<0>(cpuWithStatus).readRegister(0) == 35);
+}

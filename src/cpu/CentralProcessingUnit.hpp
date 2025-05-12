@@ -228,7 +228,7 @@ private:
         return runStackOperation(registerList, [this](uint8_t idx) -> expected<void, FaultyInstruction> {
           auto value = _registers[idx].loadDWord();
           auto currentSP = SP().loadDWord();
-          if (auto retVal = _ram.writeDWord(currentSP, value); !retVal) {
+          if (auto retVal = _ram.writeDWord(currentSP - 4, value); !retVal) {
             return handleFaultyMemoryReturn(retVal);
           }
           SP().storeDWord(currentSP - 4);
