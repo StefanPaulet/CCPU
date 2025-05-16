@@ -4,6 +4,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <register/Register.hpp>
+#include "Utils.hpp"
 
 namespace {
 using ccpu::Register;
@@ -22,47 +23,74 @@ constexpr auto regWithValue() {
 
 template <typename Update, typename Check> struct CallableContainer {};
 
+template <typename Supplier, typename Callable>
+constexpr auto registerWithUpdate(Supplier&& supplier) -> std::tuple<Register, std::invoke_result_t<Callable, Register>> {
+  Register reg = std::invoke(std::forward<Supplier>(supplier));
+  return {reg, std::invoke(Callable{}, reg)};
+}
+
+template <typename... Callables>
+constexpr auto registerSequence() {
+  std::array<Register, sizeof...(Callables) + 1> arr{};
+  std::array<bool, sizeof...(Callables)> results{};
+  arr[0] = Register{};
+  size_t idx {1};
+
+  auto call = [&arr, &results, &idx]<typename Update, typename Check>(CallableContainer<Update, Check>) {
+    arr[idx] = arr[idx - 1];
+    Update{}(arr[idx]);
+    results[idx - 1] = Check{}(arr[idx]);
+    ++idx;
+  };
+
+  (call(Callables{}), ...);
+  return results;
+}
+
+template <std::array array, std::size_t... indices>
+constexpr auto validate(std::index_sequence<indices...>) {
+  constexpr auto check = []<std::size_t idx> {
+    ASSERT(array[idx]);
+  };
+  (check.template operator()<indices>(), ...);
+}
+
 template <typename... Callables>
 constexpr auto validateSequence() {
-  Register reg {};
-  auto call = [&reg]<typename Update, typename Check>(CallableContainer<Update, Check>) {
-    Update{}(reg);
-    CHECK(Check{}(reg));
-  };
-  (call(Callables{}), ...);
+  constexpr auto array = registerSequence<Callables...>();
+  validate<array>(std::make_integer_sequence<std::size_t, array.size()>());
 }
 } // namespace
 
 TEST_CASE("Registers can store and load values") {
-  constexpr Register al = regWithValue<uint8_t{4}>();
-  STATIC_CHECK(al.loadByte() == 4);
+  CONSTEXPR auto al = regWithValue<uint8_t{4}>();
+  ASSERT(al.loadByte() == 4);
 
-  constexpr Register ax = regWithValue<uint16_t{5}>();
-  STATIC_CHECK(ax.loadWord() == 5);
+  CONSTEXPR auto ax = regWithValue<uint16_t{5}>();
+  ASSERT(ax.loadWord() == 5);
 
-  constexpr Register eax = regWithValue<uint32_t{6}>();
-  STATIC_CHECK(eax.loadDWord() == 6);
+  CONSTEXPR auto eax = regWithValue<uint32_t{6}>();
+  ASSERT(eax.loadDWord() == 6);
 }
 
 TEST_CASE("Registers can be partially updated") {
-  constexpr auto eax = [] {
+  CONSTEXPR auto eax = [] {
     Register eax = regWithValue<uint32_t{0x12000000}>();
     eax.storeWord(0x3400);
     eax.storeByte(0x56);
     return eax;
   }();
-  STATIC_CHECK(eax.loadByte() == 0x56);
-  STATIC_CHECK(eax.loadWord() == 0x3456);
-  STATIC_CHECK(eax.loadDWord() == 0x12003456);
+  ASSERT(eax.loadByte() == 0x56);
+  ASSERT(eax.loadWord() == 0x3456);
+  ASSERT(eax.loadDWord() == 0x12003456);
 }
 
-//TODO can this test be made constexpr?
 TEST_CASE("Registers maintain intermediate states") {
   validateSequence<
     CallableContainer<
       decltype([](Register& reg) constexpr{ reg.storeDWord(0x12000000); }),
       decltype([](Register const& reg) constexpr { return reg.loadDWord() == 0x12000000; })
-      >,
+    >,
     CallableContainer<
       decltype([](Register& reg) constexpr{ reg.storeWord(0x3400); }),
       decltype([](Register const& reg) constexpr { return reg.loadDWord() == 0x12003400; })

@@ -4,6 +4,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <memory/RAM.hpp>
+#include "Utils.hpp"
 
 namespace {
 using ccpu::RandomAccessMemory;
@@ -51,20 +52,20 @@ constexpr auto getMemory() -> RAM {
 } // namespace
 
 TEST_CASE("Memory should allow reads and writes") {
-  constexpr auto ram = getMemory<{
+  CONSTEXPR auto ram = getMemory<{
     Load{0, 1, 1},
     Load{1, 2, 256},
     Load{3, 4, 0xABCDEF01}
   }>();
-  STATIC_CHECK(ram.readByte(0) == 1);
-  STATIC_CHECK(ram.readWord(1) == 256);
-  STATIC_CHECK(ram.readDWord(3) == 0xABCDEF01);
-  STATIC_CHECK(ram.readByte(3) == 0x01);
-  STATIC_CHECK(ram.readWord(3) == 0xEF01);
+  ASSERT(ram.readByte(0) == 1);
+  ASSERT(ram.readWord(1) == 256);
+  ASSERT(ram.readDWord(3) == 0xABCDEF01);
+  ASSERT(ram.readByte(3) == 0x01);
+  ASSERT(ram.readWord(3) == 0xEF01);
 }
 
 TEST_CASE("Memory is persistent") {
-  constexpr auto ram = getMemory<{
+  CONSTEXPR auto ram = getMemory<{
     Load{0, 1, 1},
     Load{0, 1, 4},
 
@@ -74,47 +75,47 @@ TEST_CASE("Memory is persistent") {
     Load{8, 4, 0xAFAFAFAF},
     Load{8, 4, 0x00AA00AA}
   }>();
-  STATIC_CHECK(ram.readByte(0) == 4);
-  STATIC_CHECK(ram.readWord(2) == 0xEDCB);
-  STATIC_CHECK(ram.readDWord(8) == 0x00AA00AA);
+  ASSERT(ram.readByte(0) == 4);
+  ASSERT(ram.readWord(2) == 0xEDCB);
+  ASSERT(ram.readDWord(8) == 0x00AA00AA);
 }
 
 TEST_CASE("Memory reads and writes can overlap") {
-  constexpr auto ram = getMemory<{
+  CONSTEXPR auto ram = getMemory<{
     Load{0, 4, 0x000000AF},
     Load{1, 2, 0xBCBC},
     Load{3, 1, 0x12}
   }>();
 
-  STATIC_CHECK(ram.readDWord(0) == 0x12BCBCAF);
-  STATIC_CHECK(ram.readWord(1) == 0xBCBC);
-  STATIC_CHECK(ram.readByte(3) == 0x12);
+  ASSERT(ram.readDWord(0) == 0x12BCBCAF);
+  ASSERT(ram.readWord(1) == 0xBCBC);
+  ASSERT(ram.readByte(3) == 0x12);
 
-  constexpr auto ram2 = getMemory<{
+  CONSTEXPR auto ram2 = getMemory<{
     Load{0, 1, 0x11},
     Load{1, 4, 0x00456700},
     Load{0, 2, 0xBCBC}
   }>();
 
-  STATIC_CHECK(ram2.readByte(0) == 0xBC);
-  STATIC_CHECK(ram2.readWord(1) == 0x67BC);
+  ASSERT(ram2.readByte(0) == 0xBC);
+  ASSERT(ram2.readWord(1) == 0x67BC);
 }
 
 TEST_CASE("Invalid memory reads should signal failure") {
   using enum MemoryAccessViolation;
 
-  constexpr auto ram = getMemory<LoadArray<0>{}>();
-  STATIC_CHECK(ram.readByte(ramSize).error() == InvalidRead);
-  STATIC_CHECK(ram.readWord(ramSize - 1).error() == InvalidRead);
-  STATIC_CHECK(ram.readDWord(ramSize - 3).error() == InvalidRead);
+  CONSTEXPR auto ram = getMemory<LoadArray<0>{}>();
+  ASSERT(ram.readByte(ramSize).error() == InvalidRead);
+  ASSERT(ram.readWord(ramSize - 1).error() == InvalidRead);
+  ASSERT(ram.readDWord(ramSize - 3).error() == InvalidRead);
 }
 
 TEST_CASE("Invalid memory write should signal failure") {
   using enum MemoryAccessViolation;
 
-  constexpr auto checkInvalidRamWrite = []<auto callable, uint16_t address>() {
+  CONSTEXPR auto checkInvalidRamWrite = []<auto callable, uint16_t address>() {
     auto ram = getMemory<LoadArray<0>{}>();
-    STATIC_CHECK((ram.*callable)(address, 0).error() == InvalidWrite);
+    ASSERT((ram.*callable)(address, 0).error() == InvalidWrite);
   };
   checkInvalidRamWrite.operator()<&RAM::writeByte, ramSize>();
   checkInvalidRamWrite.operator()<&RAM::writeWord, ramSize - 1>();

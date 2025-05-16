@@ -11,6 +11,9 @@ public:
   constexpr Register(Register const&) = default;
   constexpr Register(Register&&) noexcept = default;
 
+  constexpr auto operator=(Register const&) -> Register& = default;
+  constexpr auto operator=(Register&&) noexcept -> Register& = default;
+
   [[nodiscard]] constexpr auto loadByte() const noexcept -> uint8_t { return _data; }
   [[nodiscard]] constexpr auto loadWord() const noexcept -> uint16_t { return _data; }
   [[nodiscard]] constexpr auto loadDWord() const noexcept -> uint32_t { return _data; }
