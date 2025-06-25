@@ -50,6 +50,7 @@ public:
     return {};
   }
 
+  //TODO: unchecked access into register
   [[nodiscard]] constexpr auto readRegister(uint8_t idx) const noexcept -> uint32_t { return _registers[idx].loadDWord(); }
   [[nodiscard]] constexpr auto readMem(uint32_t idx) const noexcept -> expected<uint32_t, FaultyInstruction> {
     auto retVal = _ram.readDWord(idx);
@@ -97,8 +98,9 @@ private:
     using enum FaultyInstruction;
     if (!value) {
       switch (value.error()) {
-        case InvalidWrite: unexpected<FaultyInstruction>{InvalidMemoryWrite};
-        case InvalidRead: unexpected<FaultyInstruction>{InvalidMemoryRead};
+        case InvalidWrite: return unexpected<FaultyInstruction>{InvalidMemoryWrite};
+        case InvalidRead: return unexpected<FaultyInstruction>{InvalidMemoryRead};
+        default: assert(false && "Unhandled faulty memory access");
       }
     }
     return {};
@@ -119,10 +121,12 @@ private:
   }
 
   [[nodiscard]] constexpr auto process(MemoryTransferInstruction instruction) -> expected<void, FaultyInstruction> {
+
+    auto memoryAddress = _registers[instruction.base()].loadDWord() +
+      (instruction.subtract() ? (-1) : 1) * computeOffset(instruction, instruction.immediate());
+
     if (instruction.store()) {
       auto valueToStore = _registers[instruction.source()].loadDWord();
-      auto memoryAddress = _registers[instruction.base()].loadDWord() +
-          (instruction.subtract() ? (-1) : 1) * computeOffset(instruction, instruction.immediate());
       switch (instruction.transferSize()) {
         using enum MemoryTransferInstruction::TransferSize;
         case Byte: { return handleFaultyMemoryReturn(_ram.writeByte(memoryAddress, valueToStore)); }
@@ -132,11 +136,9 @@ private:
       }
     } else {
 
-      auto performStore = [this, &instruction](
+      auto performStore = [this, memoryAddress, &instruction](
           auto readInstruction, auto storeInstruction
         ) -> expected<void, FaultyInstruction> {
-        auto memoryAddress = _registers[instruction.base()].loadDWord() +
-          (instruction.subtract() ? (-1) : 1) * computeOffset(instruction, instruction.immediate());
         auto& targetRegister = _registers[instruction.source()];
 
         auto value = (_ram.*readInstruction)(memoryAddress);
@@ -152,6 +154,7 @@ private:
         case Byte: { return performStore(&RAM::readByte, &Register::storeByte); }
         case Word: { return performStore(&RAM::readWord, &Register::storeWord); }
         case DWord: { return performStore(&RAM::readDWord, &Register::storeDWord); }
+        default: { assert(false && "Unhandled memory transfer size"); }
       }
     }
   }
@@ -180,8 +183,8 @@ private:
     _cpsr.cFlag(aluFlags.carry());
     _cpsr.vFlag([](uint32_t lhs, uint32_t rhs, uint32_t result) -> bool {
       auto lhsSign = lhs & (1u << 31);
-      auto rhsSign = lhs & (1u << 31);
-      auto resSign = lhs & (1u << 31);
+      auto rhsSign = rhs & (1u << 31);
+      auto resSign = result & (1u << 31);
       return (lhsSign == rhsSign) && (resSign != lhsSign);
     }(lhs, rhs, result));
 
@@ -277,7 +280,6 @@ private:
       case PO: { return !_cpsr.nFlag(); }
       case VS: { return _cpsr.vFlag(); }
       case VC: { return !_cpsr.vFlag(); }
-      case AL: { return true; }
       case NV: { return false; }
       default: { assert(false && "Unimplemented condition"); }
     }
@@ -304,6 +306,6 @@ private:
   array<Register, 16> _registers {};
   ArithmeticUnit _alu {};
   RAM _ram {};
-  [[maybe_unused]] CPSR _cpsr {};
+  CPSR _cpsr {};
 };
 } // namespace ccpu

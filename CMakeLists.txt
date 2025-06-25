@@ -5,13 +5,14 @@ set(CMAKE_CXX_STANDARD 23)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     set(COMPILER_SPECIFIC_COVERAGE_FLAGS "-fcoverage-mapping -fprofile-instr-generate -O0 -g")
+    set(COMPILER_CONSTEXPR_LIMIT_FLAGS "-fconstexpr-steps=4194304")
 else()
     set(COMPILER_SPECIFIC_COVERAGE_FLAGS "")
+    set(COMPILER_CONSTEXPR_LIMIT_FLAGS "-fconstexpr-depth=4194304")
 endif()
 
-set(COMPILER_WARNING_FLAGS "-Werror -Wall -Wpedantic -Wno-unused-command-line-argument")
+set(COMPILER_WARNING_FLAGS "-Werror -Wall -Wpedantic -Wextra -Wno-sign-compare -Wno-unused-command-line-argument")
 set(COMPILER_SANITIZER_FLAGS "-fsanitize=address -fsanitize=undefined")
-set(COMPILER_CONSTEXPR_LIMIT_FLAGS "-fconstexpr-steps=4194304")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMPILER_SPECIFIC_COVERAGE_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMPILER_WARNING_FLAGS}")
