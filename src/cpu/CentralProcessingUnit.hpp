@@ -253,6 +253,7 @@ private:
       case LogicalRight: { return baseRegisterValue >> instruction.shiftAmount(); }
       case ArithmeticLeft: { return static_cast<int32_t>(baseRegisterValue) << instruction.shiftAmount(); }
       case ArithmeticRight: { return static_cast<int32_t>(baseRegisterValue) >> instruction.shiftAmount(); }
+      default: { assert(false && "Unhandled shift type"); }
     }
   }
 

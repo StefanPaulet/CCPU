@@ -7,7 +7,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     set(COMPILER_SPECIFIC_COVERAGE_FLAGS "-fcoverage-mapping -fprofile-instr-generate -O0 -g")
     set(COMPILER_CONSTEXPR_LIMIT_FLAGS "-fconstexpr-steps=4194304")
 else()
-    set(COMPILER_SPECIFIC_COVERAGE_FLAGS "")
+    set(COMPILER_SPECIFIC_COVERAGE_FLAGS "-fprofile-arcs -ftest-coverage")
     set(COMPILER_CONSTEXPR_LIMIT_FLAGS "-fconstexpr-depth=4194304")
 endif()
 

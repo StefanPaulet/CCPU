@@ -3,6 +3,7 @@
 //
 
 #include <catch2/catch_test_macros.hpp>
+#include <functional>
 #include <register/Register.hpp>
 #include "Utils.hpp"
 
@@ -13,9 +14,9 @@ template <auto Value>
 constexpr auto regWithValue() {
   auto reg = Register{};
   switch (sizeof(Value)) {
-    case 1: { reg.storeByte(Value); break; }
-    case 2: { reg.storeWord(Value); break; }
-    case 4: { reg.storeDWord(Value); break; }
+    case 1: { reg.storeByte(static_cast<uint8_t>(Value)); break; }
+    case 2: { reg.storeWord(static_cast<uint16_t>(Value)); break; }
+    case 4: { reg.storeDWord(static_cast<uint32_t>(Value)); break; }
     default: { assert(false && "Should not load a value with a different size than 1, 2 or 4"); }
   }
   return reg;

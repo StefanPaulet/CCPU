@@ -3,9 +3,9 @@
 //
 
 #include <catch2/catch_test_macros.hpp>
-
+#include <expected>
 auto dummyTest() -> bool { return true; }
 
 TEST_CASE("Dummy test passes", "true") {
-    REQUIRE(dummyTest() == true);
+  REQUIRE(dummyTest() == true);
 }

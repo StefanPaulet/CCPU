@@ -57,11 +57,11 @@ TEST_CASE("Memory should allow reads and writes") {
     Load{1, 2, 256},
     Load{3, 4, 0xABCDEF01}
   }>();
-  ASSERT(ram.readByte(0) == 1);
-  ASSERT(ram.readWord(1) == 256);
-  ASSERT(ram.readDWord(3) == 0xABCDEF01);
-  ASSERT(ram.readByte(3) == 0x01);
-  ASSERT(ram.readWord(3) == 0xEF01);
+  ASSERT(ram.readByte(0).value() == 1);
+  ASSERT(ram.readWord(1).value() == 256);
+  ASSERT(ram.readDWord(3).value() == 0xABCDEF01);
+  ASSERT(ram.readByte(3).value() == 0x01);
+  ASSERT(ram.readWord(3).value() == 0xEF01);
 }
 
 TEST_CASE("Memory is persistent") {
@@ -75,9 +75,9 @@ TEST_CASE("Memory is persistent") {
     Load{8, 4, 0xAFAFAFAF},
     Load{8, 4, 0x00AA00AA}
   }>();
-  ASSERT(ram.readByte(0) == 4);
-  ASSERT(ram.readWord(2) == 0xEDCB);
-  ASSERT(ram.readDWord(8) == 0x00AA00AA);
+  ASSERT(ram.readByte(0).value() == 4);
+  ASSERT(ram.readWord(2).value() == 0xEDCB);
+  ASSERT(ram.readDWord(8).value() == 0x00AA00AA);
 }
 
 TEST_CASE("Memory reads and writes can overlap") {
@@ -87,9 +87,9 @@ TEST_CASE("Memory reads and writes can overlap") {
     Load{3, 1, 0x12}
   }>();
 
-  ASSERT(ram.readDWord(0) == 0x12BCBCAF);
-  ASSERT(ram.readWord(1) == 0xBCBC);
-  ASSERT(ram.readByte(3) == 0x12);
+  ASSERT(ram.readDWord(0).value() == 0x12BCBCAF);
+  ASSERT(ram.readWord(1).value() == 0xBCBC);
+  ASSERT(ram.readByte(3).value() == 0x12);
 
   CONSTEXPR auto ram2 = getMemory<{
     Load{0, 1, 0x11},
@@ -97,8 +97,8 @@ TEST_CASE("Memory reads and writes can overlap") {
     Load{0, 2, 0xBCBC}
   }>();
 
-  ASSERT(ram2.readByte(0) == 0xBC);
-  ASSERT(ram2.readWord(1) == 0x67BC);
+  ASSERT(ram2.readByte(0).value() == 0xBC);
+  ASSERT(ram2.readWord(1).value() == 0x67BC);
 }
 
 TEST_CASE("Invalid memory reads should signal failure") {
